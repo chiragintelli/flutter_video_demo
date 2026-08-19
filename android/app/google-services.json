@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1018472830765",
+    "project_id": "flutter-video-demo-92061",
+    "storage_bucket": "flutter-video-demo-92061.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1018472830765:android:cb544015509a843fa225a4",
+        "android_client_info": {
+          "package_name": "com.example.flutter_video_demo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCa8ZgNaGfcdvm3fHQ5ZS4WFCpjdm8PVUI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

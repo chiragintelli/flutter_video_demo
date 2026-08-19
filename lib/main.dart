@@ -57,35 +57,62 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
   String _verificationId = "";
+  int? _resendToken;
   bool _isOtpSent = false;
-  bool _isLoading = false;
+  bool _isSendingOtp = false;
+  bool _isVerifyingOtp = false;
 
   void _sendOtp() async {
-    setState(() => _isLoading = true);
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: _phoneController.text,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? "Verification failed")));
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-          _isOtpSent = true;
-          _isLoading = false;
-        });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+    if (_phoneController.text.isEmpty) return;
+    setState(() => _isSendingOtp = true);
+    
+    String fullNumber = "+91${_phoneController.text.trim()}";
+    
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: fullNumber,
+        timeout: const Duration(seconds: 15), // Reduced timeout
+        forceResendingToken: _resendToken,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          if (mounted) setState(() => _isSendingOtp = false);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            setState(() => _isSendingOtp = false);
+            String errorMsg = e.message ?? "Verification failed";
+            if (e.code == 'invalid-phone-number') errorMsg = "Invalid phone number format";
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+              _resendToken = resendToken;
+              _isOtpSent = true;
+              _isSendingOtp = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("OTP Sent Successfully")),
+            );
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (mounted) {
+            _verificationId = verificationId;
+            setState(() => _isSendingOtp = false);
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) setState(() => _isSendingOtp = false);
+    }
   }
 
   void _verifyOtp() async {
-    setState(() => _isLoading = true);
+    if (_otpController.text.isEmpty) return;
+    setState(() => _isVerifyingOtp = true);
     try {
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: _verificationId,
@@ -93,8 +120,12 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid OTP")));
+      if (mounted) {
+        setState(() => _isVerifyingOtp = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid OTP. Please try again.")),
+        );
+      }
     }
   }
 
@@ -122,8 +153,10 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendOtp,
-                  child: _isLoading ? const CircularProgressIndicator() : const Text("Next"),
+                  onPressed: _isSendingOtp ? null : _sendOtp,
+                  child: _isSendingOtp 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                    : const Text("Next"),
                 ),
               ),
             ] else ...[
@@ -139,16 +172,20 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: _isLoading ? null : _sendOtp,
-                  child: const Text("Did not get otp, resend?"),
+                  onPressed: _isSendingOtp ? null : _sendOtp,
+                  child: _isSendingOtp 
+                    ? const SizedBox(height: 15, width: 15, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text("Did not get otp, resend?"),
                 ),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _verifyOtp,
-                  child: _isLoading ? const CircularProgressIndicator() : const Text("Get started"),
+                  onPressed: _isVerifyingOtp ? null : _verifyOtp,
+                  child: _isVerifyingOtp 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                    : const Text("Get started"),
                 ),
               ),
               TextButton(
